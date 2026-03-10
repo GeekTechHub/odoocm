@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    POS Invoice Print Button — Template
+    =====================================
+    Extends the ReceiptScreen template to inject the "Print Invoice" button
+    immediately after the existing "Print Receipt" button.
+
+    XPath strategy
+    --------------
+    We target the <div class="receipt-screen"> wrapper first, then look for
+    the button with class `print-receipt-button` (Odoo 17/18/19 standard name)
+    and insert our button right after it.
+
+    If Odoo changes the class name in a future patch, update the xpath below.
+    The fallback xpath (second template) targets the button container by its
+    role-based class `receipt-actions` as an alternative insertion point.
+-->
+<templates xml:space="preserve">
+
+    <!--
+        Primary injection: insert after the "Print Receipt" button.
+        Works when the ReceiptScreen template contains a button with class
+        `print-receipt-button`.
+    -->
+    <t t-inherit="point_of_sale.ReceiptScreen" t-inherit-mode="extension">
+
+        <!-- ----------------------------------------------------------------
+             Target the "Print Receipt" button and place ours right after it.
+             The `hasclass` predicate is the standard OWL xpath helper.
+        ----------------------------------------------------------------- -->
+        <xpath expr="//button[hasclass('print-receipt-button')]" position="after">
+
+            <!--
+                "Print Invoice" button
+                ─────────────────────
+                • Shares the same visual class as the Print Receipt button so
+                  it integrates naturally into the receipt action bar.
+                • `btn-secondary` gives it a distinct but non-intrusive look.
+                • The button is disabled while the RPC call is in flight to
+                  prevent duplicate requests.
+                • The spinner (fa-spinner) provides visual feedback.
+            -->
+            <button
+                class="print-invoice-button btn btn-secondary"
+                t-on-click="printInvoice"
+                t-att-disabled="invoicePrintState.isLoadingInvoice"
+            >
+                <!-- Loading state: spinner + text -->
+                <t t-if="invoicePrintState.isLoadingInvoice">
+                    <i class="fa fa-spinner fa-spin me-1" role="status" aria-hidden="true"/>
+                    <span>Loading...</span>
+                </t>
+
+                <!-- Idle state: PDF icon + label -->
+                <t t-else="">
+                    <i class="fa fa-file-pdf-o me-1" aria-hidden="true"/>
+                    <span>Print Invoice</span>
+                </t>
+            </button>
+
+        </xpath>
+
+    </t>
+
+</templates>
