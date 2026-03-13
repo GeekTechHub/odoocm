@@ -13,4 +13,10 @@ COPY ./base_account_budget /usr/lib/python3/dist-packages/odoo/addons/base_accou
 RUN chown -R odoo:odoo /usr/lib/python3/dist-packages/odoo/addons/base_accounting_kit
 RUN chown -R odoo:odoo /usr/lib/python3/dist-packages/odoo/addons/base_account_budget
 
+# Copia el módulo del POS que falta
+COPY ./pos_invoice_print_button /usr/lib/python3/dist-packages/odoo/addons/pos_invoice_print_button
+
+# Asegura los permisos para el nuevo módulo
+RUN chown -R odoo:odoo /usr/lib/python3/dist-packages/odoo/addons/pos_invoice_print_button
+
 USER odoo
