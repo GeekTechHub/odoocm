@@ -1,35 +1,62 @@
-# pos_invoice_print_button
+# pos_invoice_print_button — v2 (Auto Print)
 
-**Odoo 19 Community — POS Invoice Print Button**
+**Odoo 19 Community — Impresión Automática de Facturas POS**
 
-Adds a **"Print Invoice"** button to the POS Receipt Screen that opens the
-standard Odoo accounting invoice (`account.report_invoice_document`) as a PDF
-in a new browser tab.
-
----
-
-## Features
-
-| Feature | Detail |
-|---|---|
-| Print Invoice button | Appears on the Receipt Screen next to "Print Receipt" |
-| Loading spinner | Visible while the RPC call is in flight |
-| Warning notification | Shown when no invoice is linked to the order |
-| Error notification | Shown on RPC failures |
-| Community-only | No Enterprise dependency |
-| Odoo 19 OWL | Uses `patch()` + `useState` + `useService` |
+Al validar un pago con la opción "Factura" activa, la factura se imprime
+automáticamente al aparecer la pantalla de recibo — sin ningún clic adicional.
 
 ---
 
-## Requirements
+## Flujo completo
 
-- Odoo **19 Community** (or 17/18 with minor xpath adjustment)
-- The **"Invoice"** option must be enabled in POS settings so that orders
-  generate an `account.move` record upon payment.
+```
+[Cajero valida pago con "Factura" ✔]
+        │
+        ▼
+[POS crea account.move normalmente]
+        │
+        ▼
+[ReceiptScreen monta — onMounted + 800ms delay]
+        │
+        ▼
+[JS: ¿la orden tenía flag de factura?]
+        │  Sí
+        ▼
+[RPC: pos.order.get_invoice_id_from_pos_order(orderId)]
+        │
+        ├─── Python busca en account_move (directo)
+        ├─── Fallback: invoice_origin = order.name
+        └─── Fallback: ref = order.name
+        │
+        ▼
+[¿Factura encontrada?]
+        │
+        ├── No  → silencio, no hace nada
+        │
+        └── Sí  → iframe oculto carga /report/html/account.report_invoice_document/<id>
+                        │
+                        ▼
+                  [iframe.onload → contentWindow.print()]
+                        │
+                        ▼
+                  [Diálogo de impresora del SO aparece automáticamente]
+                        │
+                        ▼
+                  [afterprint → iframe se elimina del DOM]
+```
 
 ---
 
-## Module Structure
+## ¿Por qué iframe HTML en vez de PDF?
+
+Los navegadores renderizan los PDF con un plugin nativo que **no** expone
+`contentWindow.print()`. El reporte HTML de Odoo es un documento DOM normal
+cuyo `print()` funciona en todos los navegadores. El CSS de impresión del
+reporte ya está optimizado para que la salida sea idéntica al PDF.
+
+---
+
+## Estructura
 
 ```
 pos_invoice_print_button/
@@ -37,136 +64,99 @@ pos_invoice_print_button/
 ├── __manifest__.py
 ├── models/
 │   ├── __init__.py
-│   └── pos_order.py          ← RPC method get_invoice_id_from_pos_order()
-└── static/
-    └── src/
-        ├── js/
-        │   └── pos_invoice_button.js   ← OWL patch on ReceiptScreen
-        └── xml/
-            └── pos_invoice_button.xml  ← Template extension (xpath)
+│   └── pos_order.py                        ← RPC get_invoice_id_from_pos_order()
+└── static/src/
+    ├── js/pos_auto_invoice_print.js        ← OWL patch ReceiptScreen (auto print)
+    └── xml/pos_auto_invoice_print.xml      ← placeholder (sin UI visual)
 ```
 
 ---
 
-## How It Works
+## Instalación
 
-```
-[Cashier clicks "Print Invoice"]
-        │
-        ▼
-[JS: _getCurrentOrderBackendId()]
-        │  Gets the server-side order.id from the current POS order
-        ▼
-[RPC: orm.call("pos.order", "get_invoice_id_from_pos_order", [orderId])]
-        │
-        ├─── Python searches account_move field (direct link)
-        ├─── Fallback: searches account.move by invoice_origin = order.name
-        └─── Fallback: searches account.move by ref = order.name
-        │
-        ▼
-[Returns invoice_id  OR  False]
-        │
-        ├── False → notification.add("Invoice Not Found", type="warning")
-        │
-        └── Found → window.open("/report/pdf/account.report_invoice_document/<id>", "_blank")
-```
+### Prerequisito obligatorio
+
+En **POS → Configuración → Ajustes**, activar la opción **"Factura"**.
+Sin esto el POS no crea `account.move` y no hay nada que imprimir.
 
 ---
 
-## Installation
-
-### Option A — Odoo.sh
-
-1. Fork or push this module to your Odoo.sh repository branch.
-2. In the Odoo.sh dashboard, go to **Settings → Branches → Your Branch**.
-3. Click **Install** and wait for the build to complete.
-4. Go to **Apps** in Odoo, search for `POS Invoice Print Button`, and install.
-
-### Option B — Docker / docker-compose
+### Docker / docker-compose
 
 ```bash
-# 1. Copy the module into your addons volume:
-cp -r pos_invoice_print_button /path/to/your/addons/
+# 1. Copiar el módulo a tu carpeta de addons:
+cp -r pos_invoice_print_button /ruta/a/tus/addons/
 
-# 2. Update the module list:
-docker exec -it <odoo_container> odoo -d <database> --stop-after-init -u base
-
-# 3. Install the module:
-docker exec -it <odoo_container> \
-  odoo -d <database> \
+# 2. Instalar el módulo:
+docker exec -it <contenedor_odoo> \
+  odoo -d <base_de_datos> \
   --stop-after-init \
   -i pos_invoice_print_button
 ```
 
-### Option C — Local / bare-metal Odoo
+### Odoo.sh
+
+```
+1. Push el módulo a tu branch de Odoo.sh.
+2. Odoo.sh reconstruye el contenedor automáticamente.
+3. Apps → buscar "POS Auto Invoice Print" → Instalar.
+```
+
+### Bare-metal / servidor Linux
 
 ```bash
-# 1. Copy module to your custom addons path:
+# Copiar módulo:
 cp -r pos_invoice_print_button /opt/odoo/custom-addons/
 
-# 2. Restart Odoo to pick up the new addons path:
+# Reiniciar Odoo:
 sudo systemctl restart odoo
 
-# 3. Update module list via UI:
-#    Settings → Technical → Update App List
-
-# 4. Install via UI:
-#    Apps → search "POS Invoice Print Button" → Install
-
-# --- OR via CLI: ---
-/opt/odoo/odoo-bin -d <database> \
-  --addons-path=/opt/odoo/addons,/opt/odoo/custom-addons \
+# Instalar vía CLI:
+/opt/odoo/odoo-bin \
+  -d <base_de_datos> \
+  -c /etc/odoo/odoo.conf \
   --stop-after-init \
   -i pos_invoice_print_button
+
+# O instalar vía UI:
+# Apps → Actualizar lista → buscar "POS Auto Invoice Print" → Instalar
 ```
 
-### Option D — Development mode (fastest)
+### Modo desarrollo (más rápido para pruebas)
 
 ```bash
-# Activate developer mode in Odoo (Settings → Developer Tools)
-# Then from the CLI:
 python odoo-bin \
-  -d <your_database> \
-  -c /etc/odoo/odoo.conf \
+  -d <base_de_datos> \
+  -c odoo.conf \
   --stop-after-init \
   -u pos_invoice_print_button
 ```
 
 ---
 
-## Configuration
+## Troubleshooting
 
-1. Go to **Point of Sale → Configuration → Settings**.
-2. Enable the **"Invoice"** option (usually under the Payments or Bills section).
-3. Open the POS session.
-4. On the payment screen, check **"Invoice"** before validating payment.
-5. On the Receipt Screen the **"Print Invoice"** button will now be visible.
+| Síntoma | Causa probable | Solución |
+|---|---|---|
+| No se abre el diálogo de impresora | Popup blocker activo | Permitir popups para el dominio de Odoo en el navegador |
+| Se imprime dos veces | ReceiptScreen monta dos veces | El Set `PRINTED_INVOICE_IDS` evita esto — revisar logs |
+| No imprime nada | Flag `is_to_invoice` no detectado | Ver consola del navegador, ajustar la lógica en `_orderIsToInvoice()` |
+| "Error cargando reporte" | wkhtmltopdf / renderizado del report | Revisar logs del servidor Odoo |
+| Imprime pero vacío | Orden no sincronizada al servidor aún | Aumentar `AUTO_PRINT_DELAY_MS` en el JS (default: 800ms) |
 
 ---
 
-## Troubleshooting
+## Ajuste fino del delay
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| Button not visible | JS/XML not loaded | Clear browser cache, restart Odoo, check assets |
-| "Invoice Not Found" warning | Invoice option was not enabled during payment | Enable Invoice in POS settings |
-| "Invoice Not Found" warning | Order not yet synced | Wait for order to sync, or check internet |
-| PDF blank / error | Report rendering issue | Check Odoo server logs for wkhtmltopdf errors |
-| xpath not matching | Different Odoo version template | Update xpath in `pos_invoice_button.xml` |
+Si en tu entorno el servidor tarda más en confirmar la factura, aumenta
+`AUTO_PRINT_DELAY_MS` en `pos_auto_invoice_print.js`:
 
-### Checking the xpath
-
-If the button is not injected, inspect the ReceiptScreen DOM in your browser
-devtools and find the correct class name for the Print Receipt button, then
-update the xpath in `pos_invoice_button.xml`:
-
-```xml
-<!-- Example if the class is different in your version: -->
-<xpath expr="//button[hasclass('your-actual-class')]" position="after">
+```javascript
+const AUTO_PRINT_DELAY_MS = 1500;  // aumentar si hay lag de red
 ```
 
 ---
 
-## License
+## Licencia
 
 LGPL-3

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    POS Auto Invoice Print — Templates
+    ====================================
+    Este módulo NO agrega ningún elemento visual al ReceiptScreen.
+    La impresión es completamente automática y silenciosa.
+
+    El archivo XML es requerido por el asset bundle para que el módulo
+    registre correctamente su presencia en el POS, pero no modifica
+    ningún template existente.
+
+    Si en el futuro quieres agregar un indicador visual (ej: "Imprimiendo
+    factura...") puedes extender ReceiptScreen aquí con un t-inherit.
+-->
+<templates xml:space="preserve">
+    <!--
+        Placeholder: no extiende ningún template.
+        La lógica 100% vive en pos_auto_invoice_print.js.
+    -->
+</templates>
