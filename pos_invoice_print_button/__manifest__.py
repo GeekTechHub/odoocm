@@ -36,7 +36,7 @@
     ],
     'data': [],
     'assets': {
-        'point_of_sale.assets_prod': [
+        'point_of_sale.assets': [
             'pos_invoice_print_button/static/src/js/pos_auto_invoice_print.js',
             'pos_invoice_print_button/static/src/xml/pos_auto_invoice_print.xml',
         ],
