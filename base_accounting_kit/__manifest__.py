@@ -103,7 +103,7 @@
             'python': ['openpyxl', 'ofxparse', 'qifparse']
         },
     'assets': {
-        'web.assets_backend': [
+        'point_of_sale.assets': [
             'base_accounting_kit/static/src/scss/style.scss',
             'base_accounting_kit/static/src/scss/bank_rec_widget.css',
             'base_accounting_kit/static/src/js/bank_reconcile_form_list_widget.js',
