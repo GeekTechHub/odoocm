@@ -184,4 +184,5 @@ patch(ReceiptScreen.prototype, {
 
         document.body.appendChild(iframe);
     },
+
 });
